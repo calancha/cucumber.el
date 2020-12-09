@@ -82,6 +82,13 @@
 ;;
 ;;  \C-c ,g
 ;;  :   Go to step-definition under point
+;;
+;;  \C-c ,p
+;;  :   Jump to the beginning of the scenario at point or to the previous scenario.
+;;
+;;  \C-c ,n
+;;  :   Jump to the next scenario.
+
 
 (eval-when-compile (require 'cl))
 (require 'thingatpt)
@@ -276,7 +283,9 @@
   (define-key feature-mode-map  (kbd "C-c ,v") 'feature-verify-all-scenarios-in-buffer)
   (define-key feature-mode-map  (kbd "C-c ,f") 'feature-verify-all-scenarios-in-project)
   (define-key feature-mode-map  (kbd "C-c ,g") 'feature-goto-step-definition)
-  (define-key feature-mode-map  (kbd "M-.") 'feature-goto-step-definition))
+  (define-key feature-mode-map  (kbd "M-.") 'feature-goto-step-definition)
+  (define-key feature-mode-map  (kbd "C-c n") 'feature-next-scenario)
+  (define-key feature-mode-map  (kbd "C-c p") 'feature-previous-scenario))
 
 ;; Add relevant feature keybindings to ruby modes
 (add-hook 'ruby-mode-hook
@@ -616,6 +625,51 @@ are loaded on startup.  If nil, don't load snippets.")
            feature-snippet-directory
            (file-exists-p feature-snippet-directory))
   (yas/load-directory feature-snippet-directory))
+
+
+;;
+;; Navigating feature file
+;;
+
+(defun feature-at-scenario-p ()
+  "Return non-nil if point is at one scenario."
+  (save-excursion
+    (goto-char (point-at-bol))
+    (looking-at (rx bol (* space) eol))))
+
+(defun feature-next-scenario (&optional arg)
+  "Move down to the next scenario.
+Called with a prefix, move down ARG scenarios."
+  (interactive "p")
+  (let* ((n (or arg 1))
+        (regexp (rx bol (* space) "Scenario: "))
+        (target))
+    (save-excursion
+      ;; Skip the current scenario.
+      (when (and (not (looking-at "^$")) (looking-at regexp))
+        (setq n (1+ n)))
+
+      (when (search-forward-regexp regexp nil 'noerror n)
+        (setq target (progn (search-backward-regexp "Scenario: ")
+                            (point-at-bol)))))
+    (if target
+        (goto-char target)
+      (user-error "No more scenarios"))))
+
+(defun feature-previous-scenario (&optional arg)
+  "Move up to the beginning of the current scenario or to the previous one.
+Called with a prefix, move up ARG scenarios."
+  (interactive "p")
+  (let* ((n (or arg 1))
+         (regexp (rx bol (* space) "Scenario: "))
+         (target))
+    (save-excursion
+      (when (search-backward-regexp regexp nil 'noerror n)
+        (setq target (progn (search-forward-regexp "Scenario: ")
+                            (point-at-bol)))))
+    (if target
+        (goto-char target)
+      (user-error "No more scenarios"))))
 
 
 ;;
