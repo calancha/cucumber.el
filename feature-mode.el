@@ -280,6 +280,7 @@
   (setq feature-mode-map (make-sparse-keymap))
   (define-key feature-mode-map "\C-m" 'newline)
   (define-key feature-mode-map  (kbd "C-c ,s") 'feature-verify-scenario-at-pos)
+  (define-key feature-mode-map  (kbd "C-c ,w") 'feature-verify-all-scenarios-in-region)
   (define-key feature-mode-map  (kbd "C-c ,v") 'feature-verify-all-scenarios-in-buffer)
   (define-key feature-mode-map  (kbd "C-c ,f") 'feature-verify-all-scenarios-in-project)
   (define-key feature-mode-map  (kbd "C-c ,g") 'feature-goto-step-definition)
@@ -689,18 +690,82 @@ Called with a prefix, move up ARG scenarios."
   "Same as `buffer-file-name' but it drops the remote prefix in remote files."
   (feature-remove-remote-file-prefix (buffer-file-name)))
 
+(defun feature--before-scenarios-p ()
+  (let ((regexp (rx bol (* blank) "Scenario: ")))
+    (not
+     (or
+      (save-excursion (forward-line 0) (looking-at regexp))
+      (save-excursion (re-search-backward regexp nil 'noerror))))))
+
+(defun feature--after-scenarios-p ()
+  (let ((regexp (rx bol (* blank) "Scenario: ")))
+    (and
+      (save-excursion (forward-line 0) (looking-at (rx bol (* blank) eol)))
+      (save-excursion (not (re-search-forward regexp nil 'noerror))))))
+
+(defun feature--between-scenarios-p ()
+  (let ((regexp (rx bol (* blank) "Scenario: ")))
+    (and
+      (save-excursion (forward-line 0) (looking-at (rx bol (* blank) eol)))
+      (save-excursion (re-search-backward regexp nil 'noerror))
+      (save-excursion (re-search-forward regexp nil 'noerror)))))
+
+(defun feature--scenario-at-point ()
+  (unless (or (feature--before-scenarios-p)
+              (feature--after-scenarios-p)
+              (feature--between-scenarios-p))
+    (let ((regexp (rx bol (* blank) "Scenario:" (* blank) (group (* nonl)))))
+      (save-excursion
+        (forward-line)
+        (when (re-search-backward regexp nil 'noerror)
+          (cons (match-string-no-properties 1) (point)))))))
+
+(defun feature-scenario-at-point ()
+  "Return the name of the scenario at point.
+Throw an error if there is no scenario at point."
+  (if-let ((title-pos (feature--scenario-at-point)))
+      (car title-pos)
+    (user-error "No scenario at point")))
+
 (defun feature-verify-scenario-at-pos (&optional pos)
   "Run the scenario defined at pos.  If post is not specified the current buffer location will be used."
   (interactive)
+  (unless (feature-scenario-at-point)
+    (user-error "No scenario at point"))
   (feature-run-cucumber
    (list "-l" (number-to-string (line-number-at-pos)))
+   :feature-file (feature-buffer-file-name)))
+
+(defun feature-scenarios-in-region (start end)
+  "Return the line of the title per each scenario inside the active region.
+
+A scenario only partially inside the region is also included.
+We also include a Scenario if just starts at END."
+  (let* ((start (min start end))
+         (end (max start end))
+         (lines))
+    (save-excursion
+      (goto-char start)
+      (forward-line 0)
+      (when-let ((pos (cdr-safe (ignore-errors (feature--scenario-at-point)))))
+        (push (line-number-at-pos pos) lines))
+      (while (and (ignore-errors (feature-next-scenario)) (<= (point) end))
+        (when-let ((pos (cdr-safe (feature--scenario-at-point))))
+          (push (line-number-at-pos pos) lines)))
+      (nreverse lines))))
+
+(defun feature-verify-all-scenarios-in-region (&optional start end)
+  "Run all the scenarios inside the selected region."
+  (interactive "r")
+  (feature-run-cucumber
+   (list (mapconcat (lambda (line) (format "-l %d" line))
+              (feature-scenarios-in-region start end) " "))
    :feature-file (feature-buffer-file-name)))
 
 (defun feature-verify-all-scenarios-in-buffer ()
   "Run all the scenarios defined in current buffer."
   (interactive)
   (feature-run-cucumber '() :feature-file (feature-buffer-file-name)))
-
 
 (defun feature-verify-all-scenarios-in-project ()
   "Run all the scenarios defined in current project."
