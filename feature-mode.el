@@ -679,17 +679,27 @@ Called with a prefix, move up ARG scenarios."
 (defun feature-scenario-name-re (language)
   (concat (feature-scenario-re (feature-detect-language)) "\\( Outline:?\\)?[[:space:]]+\\(.*\\)$"))
 
+(defun feature-remove-remote-file-prefix (file)
+  "Return file without remote prefix."
+  (if-let ((remote-prefix (file-remote-p  file)))
+      (substring file (length remote-prefix))
+    file))
+
+(defun feature-buffer-file-name ()
+  "Same as `buffer-file-name' but it drops the remote prefix in remote files."
+  (feature-remove-remote-file-prefix (buffer-file-name)))
+
 (defun feature-verify-scenario-at-pos (&optional pos)
   "Run the scenario defined at pos.  If post is not specified the current buffer location will be used."
   (interactive)
   (feature-run-cucumber
    (list "-l" (number-to-string (line-number-at-pos)))
-   :feature-file (buffer-file-name)))
+   :feature-file (feature-buffer-file-name)))
 
 (defun feature-verify-all-scenarios-in-buffer ()
   "Run all the scenarios defined in current buffer."
   (interactive)
-  (feature-run-cucumber '() :feature-file (buffer-file-name)))
+  (feature-run-cucumber '() :feature-file (feature-buffer-file-name)))
 
 
 (defun feature-verify-all-scenarios-in-project ()
@@ -783,7 +793,7 @@ Called with a prefix, move up ARG scenarios."
                                                   feature-ruby-command
                                                   feature-support-directory
                                                   (feature-detect-language)
-                                                  (buffer-file-name)
+                                                  (feature-buffer-file-name)
                                                   (line-number-at-pos)
                                                   (shell-quote-argument feature-step-search-path)
                                                   (shell-quote-argument feature-step-search-gems-path))))
