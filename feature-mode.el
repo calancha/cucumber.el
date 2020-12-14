@@ -739,13 +739,13 @@ Throw an error if there is no scenario at point."
    (list "-l" (number-to-string (line-number-at-pos)))
    :feature-file (feature-buffer-file-name)))
 
-(defun feature-scenarios-touching-region (start end)
+(defun feature-scenarios-touching-region (rstart rend)
   "Return the line of the title per each scenario touching the active region.
 
 A scenario only partially inside the region is included.
-A scenario that just starts at END is excluded."
-  (let* ((start (min start end))
-         (end (max start end))
+A scenario that just starts at REND is excluded."
+  (let* ((start (min rstart rend))
+         (end (max rstart rend))
          (lines))
     (save-excursion
       (goto-char start)
