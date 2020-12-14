@@ -761,8 +761,9 @@ We also include a Scenario that just starts at END."
   "Run all the scenarios touching the selected region."
   (interactive "r")
   (feature-run-cucumber
-   (list (mapconcat (lambda (line) (format "-l %d" line))
-              (feature-scenarios-touching-region start end) " "))
+   (list (concat "-l " (mapconcat
+                        (lambda (line) (format "%d" line))
+                        (feature-scenarios-touching-region (mark) (point)) ":")))
    :feature-file (feature-buffer-file-name)))
 
 (defun feature-verify-all-scenarios-in-buffer ()
