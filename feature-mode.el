@@ -760,6 +760,8 @@ A scenario that just starts at END is excluded."
 (defun feature-verify-all-scenarios-touching-region (&optional start end)
   "Run all the scenarios touching the selected region."
   (interactive "r")
+  (unless (feature-scenarios-touching-region (mark) (point))
+    (user-error "No scenario touches the region"))
   (feature-run-cucumber
    (list (concat "-l " (mapconcat
                         (lambda (line) (format "%d" line))
