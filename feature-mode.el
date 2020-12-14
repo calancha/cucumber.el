@@ -743,7 +743,7 @@ Throw an error if there is no scenario at point."
   "Return the line of the title per each scenario touching the active region.
 
 A scenario only partially inside the region is included.
-We also include a Scenario that just starts at END."
+A scenario that just starts at END is excluded."
   (let* ((start (min start end))
          (end (max start end))
          (lines))
@@ -752,7 +752,7 @@ We also include a Scenario that just starts at END."
       (forward-line 0)
       (when-let ((pos (cdr-safe (ignore-errors (feature--scenario-at-point)))))
         (push (line-number-at-pos pos) lines))
-      (while (and (ignore-errors (feature-next-scenario)) (<= (point) end))
+      (while (and (ignore-errors (feature-next-scenario)) (< (point) end))
         (when-let ((pos (cdr-safe (feature--scenario-at-point))))
           (push (line-number-at-pos pos) lines)))
       (nreverse lines))))
